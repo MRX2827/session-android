@@ -38,6 +38,8 @@ import org.thoughtcrime.securesms.database.model.MessageRecord
 import org.thoughtcrime.securesms.database.model.MmsMessageRecord
 import org.thoughtcrime.securesms.util.addTextChangedListener
 import org.thoughtcrime.securesms.util.contains
+import org.thoughtcrime.securesms.videocircle.RecordingMode
+import org.thoughtcrime.securesms.videocircle.VideoCircleUtils
 import javax.inject.Inject
 
 // TODO: A lot of the logic regarding voice messages is currently performed in the ConversationActivity
@@ -107,7 +109,16 @@ class InputBar @JvmOverloads constructor(
         contentDescription = context.getString(R.string.AccessibilityId_attachmentsButton)
     }
 
-    val microphoneButton = InputBarButton(context, R.drawable.ic_mic).apply {
+    /**
+     * What a long press on the microphone button records. A short tap flips it, like in Telegram:
+     * tap once -> video circle, tap again -> back to voice message. The choice is remembered.
+     */
+    var recordingMode: RecordingMode = VideoCircleUtils.getMode(context)
+        private set
+
+    private var recordingFromLongPress = false
+
+    val microphoneButton = InputBarButton(context, iconForMode(recordingMode)).apply {
         contentDescription = context.getString(R.string.AccessibilityId_voiceMessageNew)
     }
 
@@ -172,34 +183,40 @@ class InputBar @JvmOverloads constructor(
             microphoneButton.layoutParams =
                 LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
 
-            microphoneButton.onMove = { delegate?.onMicrophoneButtonMove(it) }
-            microphoneButton.onCancel = { delegate?.onMicrophoneButtonCancel(it) }
+            // Tap (< long-press threshold) flips between voice message and video circle...
+            microphoneButton.onPress = { toggleRecordingMode() }
 
-            // Use a separate 'raw' OnTouchListener to record the microphone button down/up timestamps because
-            // they don't get delayed by any multi-threading or delegates which throw off the timestamp accuracy.
-            // For example: If we bind something to `microphoneButton.onPress` and also log something in
-            // `microphoneButton.onUp` and tap the button then the logged output order is onUp and THEN onPress!
+            // ...while holding starts recording in the current mode.
+            microphoneButton.onLongPress = {
+                // Only start spinning up the recorder if we're not already recording, setting up, or tearing down
+                if (voiceRecorderState == VoiceRecorderState.Idle) {
+                    recordingFromLongPress = true
+                    startRecordingVoiceMessage()
+                }
+            }
+
+            microphoneButton.onMove = { if (recordingFromLongPress) delegate?.onMicrophoneButtonMove(it) }
+            microphoneButton.onCancel = {
+                if (recordingFromLongPress) {
+                    recordingFromLongPress = false
+                    delegate?.onMicrophoneButtonCancel(it)
+                }
+            }
+
+            // Use a separate 'raw' OnTouchListener to record the microphone button up timestamp because
+            // it doesn't get delayed by any multi-threading or delegates which throw off the timestamp accuracy.
             microphoneButton.setOnTouchListener(object : OnTouchListener {
                 override fun onTouch(v: View, event: MotionEvent): Boolean {
 
                     // We only handle single finger touch events so just consume the event and bail if there are more
                     if (event.pointerCount > 1) return true
 
-                    when (event.action) {
-                        MotionEvent.ACTION_DOWN -> {
+                    if (event.action == MotionEvent.ACTION_UP && recordingFromLongPress) {
+                        recordingFromLongPress = false
 
-                            // Only start spinning up the voice recorder if we're not already recording, setting up, or tearing down
-                            if (voiceRecorderState == VoiceRecorderState.Idle) {
-                                startRecordingVoiceMessage()
-                            }
-                        }
-
-                        MotionEvent.ACTION_UP -> {
-
-                            // Handle the pointer up event appropriately, whether that's to keep recording if recording was locked
-                            // on, or finishing recording if just hold-to-record.
-                            delegate?.onMicrophoneButtonUp(event)
-                        }
+                        // Handle the pointer up event appropriately, whether that's to keep recording if recording was locked
+                        // on, or finishing recording if just hold-to-record.
+                        delegate?.onMicrophoneButtonUp(event)
                     }
 
                     // Return false to propagate the event rather than consuming it
@@ -249,6 +266,17 @@ class InputBar @JvmOverloads constructor(
 
     private fun startRecordingVoiceMessage() {
         delegate?.startRecordingVoiceMessage()
+    }
+
+    private fun iconForMode(mode: RecordingMode): Int =
+        if (mode == RecordingMode.CIRCLE) R.drawable.ic_video_circle else R.drawable.ic_mic
+
+    private fun toggleRecordingMode() {
+        if (voiceRecorderState != VoiceRecorderState.Idle) return
+        recordingMode = if (recordingMode == RecordingMode.VOICE) RecordingMode.CIRCLE else RecordingMode.VOICE
+        VideoCircleUtils.setMode(context, recordingMode)
+        microphoneButton.setIconAnimated(iconForMode(recordingMode))
+        microphoneButton.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
     }
 
     fun draftQuote(thread: Recipient, message: MessageRecord, glide: RequestManager) {

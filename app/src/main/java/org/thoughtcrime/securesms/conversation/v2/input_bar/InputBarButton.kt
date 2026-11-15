@@ -11,6 +11,7 @@ import android.util.AttributeSet
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
+import android.view.animation.OvershootInterpolator
 import android.widget.ImageView
 import android.widget.RelativeLayout
 import androidx.annotation.DrawableRes
@@ -111,6 +112,29 @@ class InputBarButton : RelativeLayout {
     }
 
     fun getIconID() = iconID
+
+    /**
+     * Swaps the icon with a small "flip": the old one spins and shrinks away, the new one springs in.
+     * Used by the microphone button to switch between voice message and video circle.
+     */
+    fun setIconAnimated(@DrawableRes newIconID: Int) {
+        if (newIconID == iconID) return
+        iconID = newIconID
+        imageView.animate().cancel()
+        imageView.animate()
+            .scaleX(0f).scaleY(0f).rotation(-90f).alpha(0f)
+            .setDuration(110)
+            .withEndAction {
+                imageView.setImageResource(newIconID)
+                imageView.rotation = 90f
+                imageView.animate()
+                    .scaleX(1f).scaleY(1f).rotation(0f).alpha(1f)
+                    .setDuration(220)
+                    .setInterpolator(OvershootInterpolator(2.4f))
+                    .start()
+            }
+            .start()
+    }
 
     fun expand() {
         val backgroundFromColor = context.getColorFromAttr(backgroundColourId)

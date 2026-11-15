@@ -84,6 +84,11 @@ class InputBarRecordingView : RelativeLayout {
         startTimer(scope)
     }
 
+    /** The big round button shown while recording: mic for voice messages, circle icon for video circles. */
+    fun setRecordIcon(@androidx.annotation.DrawableRes iconRes: Int) {
+        binding.recordButtonOverlayImageView.setImageDrawable(ResourcesCompat.getDrawable(resources, iconRes, context.theme))
+    }
+
     fun hide() {
         animate().cancel()
         animate()

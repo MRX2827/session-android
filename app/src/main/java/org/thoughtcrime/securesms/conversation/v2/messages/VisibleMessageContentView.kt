@@ -57,6 +57,7 @@ import org.thoughtcrime.securesms.mms.PartAuthority
 import org.thoughtcrime.securesms.util.GlowViewUtilities
 import org.thoughtcrime.securesms.util.SearchUtil
 import org.thoughtcrime.securesms.util.getAccentColor
+import org.thoughtcrime.securesms.videocircle.VideoCircleUtils
 import java.util.Locale
 import javax.inject.Inject
 import kotlin.math.roundToInt
@@ -143,6 +144,8 @@ class VisibleMessageContentView : ConstraintLayout {
             binding.voiceMessageView.root.isVisible = false
             binding.documentView.root.isVisible = false
             binding.albumThumbnailView.root.isVisible = false
+            binding.videoCircleView.release()
+            binding.videoCircleView.isVisible = false
             binding.openGroupInvitationView.root.isVisible = false
             binding.attachmentControlView.root.isVisible = false
             return
@@ -167,6 +170,7 @@ class VisibleMessageContentView : ConstraintLayout {
         binding.voiceMessageView.root.isVisible = false
         binding.documentView.root.isVisible = false
         binding.albumThumbnailView.root.isVisible = false
+        binding.videoCircleView.isVisible = false
         binding.openGroupInvitationView.root.isVisible = message.isOpenGroupInvitation
 
         var hideBody = false
@@ -323,6 +327,21 @@ class VisibleMessageContentView : ConstraintLayout {
                 }
             }
 
+            // VIDEO CIRCLE ("кружок"): a normal mp4 attachment sent with our filename marker.
+            // While it is still downloading we fall through to the regular attachment control below.
+            message is MmsMessageRecord && !suppressThumbnails &&
+                    (overallAttachmentState == AttachmentState.DONE || message.isOutgoing) &&
+                    VideoCircleUtils.findCircleSlide(message.slideDeck) != null -> {
+                hideBody = false
+
+                binding.attachmentControlView.root.isVisible = false
+                binding.videoCircleView.isVisible = true
+                binding.videoCircleView.bind(VideoCircleUtils.findCircleSlide(message.slideDeck)!!, glide)
+                onContentClick.add { event ->
+                    if (binding.videoCircleView.containsRaw(event)) binding.videoCircleView.toggle()
+                }
+            }
+
             // IMAGE / VIDEO
             message is MmsMessageRecord && message.slideDeck.asAttachments().isNotEmpty() -> {
                 hideBody = false
@@ -441,6 +460,10 @@ class VisibleMessageContentView : ConstraintLayout {
             horizontalBias = bias
         }
 
+        binding.videoCircleView.modifyLayoutParams<LayoutParams> {
+            horizontalBias = bias
+        }
+
         binding.attachmentControlView.root.modifyLayoutParams<LayoutParams> {
             horizontalBias = bias
         }
@@ -502,10 +525,11 @@ class VisibleMessageContentView : ConstraintLayout {
     }
 
     private fun ViewVisibleMessageContentBinding.barrierViewsGone(): Boolean =
-        listOf<View>(albumThumbnailView.root, linkPreviewView.root, voiceMessageView.root, quoteView.root).none { it.isVisible }
+        listOf<View>(albumThumbnailView.root, videoCircleView, linkPreviewView.root, voiceMessageView.root, quoteView.root).none { it.isVisible }
 
     fun recycle() {
         binding.voiceMessageView.root.recycle()
+        binding.videoCircleView.release()
         arrayOf(
             binding.deletedMessageView.root,
             binding.attachmentControlView.root,
@@ -515,6 +539,7 @@ class VisibleMessageContentView : ConstraintLayout {
             binding.quoteView.root,
             binding.linkPreviewView.root,
             binding.albumThumbnailView.root,
+            binding.videoCircleView,
             binding.bodyTextView
         ).forEach { view: View -> view.isVisible = false }
     }

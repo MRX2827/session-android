@@ -214,6 +214,9 @@ import org.thoughtcrime.securesms.util.ActivityDispatcher
 import org.thoughtcrime.securesms.util.DateUtils
 import org.thoughtcrime.securesms.util.FilenameUtils
 import org.thoughtcrime.securesms.util.MediaUtil
+import org.thoughtcrime.securesms.videocircle.CircleVideoRecorder
+import org.thoughtcrime.securesms.videocircle.RecordingMode
+import org.thoughtcrime.securesms.videocircle.VideoCircleUtils
 import org.thoughtcrime.securesms.util.PaddedImageSpan
 import org.thoughtcrime.securesms.util.SaveAttachmentTask
 import org.thoughtcrime.securesms.util.adapter.runWhenLaidOut
@@ -335,6 +338,13 @@ class ConversationActivityV2 : ScreenLockActionBarActivity(), InputBarDelegate,
     // Attachments
     private var voiceMessageStartTimestamp: Long = 0L
     private var audioRecorderHandle: AudioRecorderHandle? = null
+
+    // Video circles ("кружки"): same hold-to-record / slide-to-cancel / lock gestures as voice messages,
+    // but recording the camera into a round preview. See the "Video circles" region below.
+    private var circleRecorder: CircleVideoRecorder? = null
+    private var circleJob: Job? = null
+    private var isCircleSession = false
+    private var circleStartedAt = 0L
     private val stopAudioHandler = Handler(Looper.getMainLooper())
     private val stopVoiceMessageRecordingTask = Runnable { sendVoiceMessage() }
     private val attachmentManager by lazy { AttachmentManager(this, this) }
@@ -2746,6 +2756,11 @@ class ConversationActivityV2 : ScreenLockActionBarActivity(), InputBarDelegate,
         Log.i(TAG, "Starting voice message recording at: ${System.currentTimeMillis()} --- ${binding.inputBar.voiceRecorderState}")
         binding.inputBar.voiceRecorderState = VoiceRecorderState.SettingUpToRecord
 
+        if (binding.inputBar.recordingMode == RecordingMode.CIRCLE) {
+            startCircleRecording()
+            return
+        }
+
         if (Permissions.hasAll(this, Manifest.permission.RECORD_AUDIO)) {
             // Cancel any previous recording attempt
             audioRecorderHandle?.cancel()
@@ -2792,6 +2807,11 @@ class ConversationActivityV2 : ScreenLockActionBarActivity(), InputBarDelegate,
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         binding.inputBar.voiceRecorderState = VoiceRecorderState.Idle
+
+        if (isCircleSession) {
+            stopCircleRecording(send)
+            return
+        }
 
         // Clear the audio session immediately for the next recording attempt
         val handle = audioRecorderHandle
@@ -2848,6 +2868,147 @@ class ConversationActivityV2 : ScreenLockActionBarActivity(), InputBarDelegate,
             }
         }
     }
+
+    // region Video circles
+
+    private fun startCircleRecording() {
+        val needed = arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
+        if (!Permissions.hasAll(this, *needed)) {
+            binding.inputBar.voiceRecorderState = VoiceRecorderState.Idle
+
+            Permissions.with(this)
+                .request(*needed)
+                .withPermanentDenialDialog(getString(R.string.cameraGrantAccessDenied))
+                .execute()
+            return
+        }
+
+        // Cancel any previous recording attempt
+        circleJob?.cancel()
+        circleRecorder?.let {
+            it.cancel()
+            it.release()
+        }
+
+        val recorder = CircleVideoRecorder(applicationContext)
+        circleRecorder = recorder
+        isCircleSession = true
+        circleStartedAt = 0L
+
+        // The circle pops out of the microphone button right away; the camera needs a moment to warm up.
+        showVoiceMessageUI()
+        binding.inputBarRecordingView.setRecordIcon(R.drawable.ic_video_circle)
+        binding.circleRecordingView.open()
+
+        circleJob = lifecycleScope.launch {
+            try {
+                recorder.bind(this@ConversationActivityV2, binding.circleRecordingView.previewView)
+                recorder.start { error ->
+                    // The user may have released / cancelled while the camera was still starting.
+                    if (circleRecorder !== recorder) return@start
+
+                    if (error == null) {
+                        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+                        circleStartedAt = System.currentTimeMillis()
+                        voiceMessageStartTimestamp = circleStartedAt
+                        binding.inputBar.voiceRecorderState = VoiceRecorderState.Recording
+                        binding.circleRecordingView.onRecordingStarted()
+
+                        // Video circles are limited to 60 seconds
+                        stopAudioHandler.postDelayed(
+                            stopVoiceMessageRecordingTask,
+                            VideoCircleUtils.MAX_DURATION_MS
+                        )
+                    } else {
+                        abortCircleRecording(recorder, error)
+                    }
+                }
+            } catch (ec: CancellationException) {
+                throw ec
+            } catch (ec: Exception) {
+                if (circleRecorder === recorder) abortCircleRecording(recorder, ec)
+            }
+        }
+    }
+
+    private fun abortCircleRecording(recorder: CircleVideoRecorder, error: Throwable) {
+        Log.e(TAG, "Error while starting video circle recording", error)
+        isCircleSession = false
+        circleRecorder = null
+        circleJob?.cancel()
+        circleJob = null
+        circleStartedAt = 0L
+        recorder.cancel()
+        recorder.release()
+
+        hideVoiceMessageUI()
+        binding.circleRecordingView.closeCancel()
+        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        binding.inputBar.voiceRecorderState = VoiceRecorderState.Idle
+        Toast.makeText(this, R.string.audioUnableToRecord, Toast.LENGTH_LONG).show()
+    }
+
+    private fun stopCircleRecording(send: Boolean) {
+        isCircleSession = false
+        val recorder = circleRecorder
+        circleRecorder = null
+        val job = circleJob
+        circleJob = null
+        val startedAt = circleStartedAt
+        circleStartedAt = 0L
+
+        if (recorder == null) {
+            binding.circleRecordingView.closeCancel()
+            return
+        }
+
+        val tooShort = startedAt == 0L ||
+                !MediaUtil.voiceMessageMeetsMinimumDuration(System.currentTimeMillis() - startedAt)
+
+        if (!send || tooShort) {
+            job?.cancel()
+            recorder.cancel()
+            recorder.release()
+            binding.circleRecordingView.closeCancel()
+
+            if (send && tooShort) {
+                Log.w(TAG, "Video circle is too short")
+                voiceNoteTooShortToast.setText(applicationContext.getString(R.string.messageVoiceErrorShort))
+                showVoiceMessageToastIfNotAlreadyVisible()
+            }
+            return
+        }
+
+        binding.circleRecordingView.closeSent()
+
+        lifecycleScope.launch {
+            try {
+                val output = recorder.stop()
+                recorder.release()
+                if (output == null) throw java.io.IOException("Video circle recording failed")
+
+                // Goes out as a normal mp4 video. The filename prefix is what makes our client show it round.
+                val slide = VideoSlide(
+                    this@ConversationActivityV2,
+                    Uri.fromFile(output.file),
+                    VideoCircleUtils.newFilename(),
+                    output.length
+                )
+                val slideDeck = SlideDeck()
+                slideDeck.addSlide(slide)
+                sendAttachments(slideDeck.asAttachments(), body = null, deleteAttachmentFilesAfterSave = true)
+            } catch (ec: CancellationException) {
+                throw ec
+            } catch (ec: Exception) {
+                Log.e(TAG, "Error while recording video circle", ec)
+                recorder.release()
+                Toast.makeText(this@ConversationActivityV2, R.string.audioUnableToRecord, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    // endregion
 
     override fun sendVoiceMessage() {
         Log.i(TAG, "Sending voice message at: ${System.currentTimeMillis()}")

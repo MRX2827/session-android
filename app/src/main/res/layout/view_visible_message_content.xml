@@ -138,4 +138,16 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"/>
 
+    <!-- Video circle ("кружок"): ordinary mp4 attachment rendered as a round player -->
+    <org.thoughtcrime.securesms.videocircle.VideoCircleView
+        android:id="@+id/videoCircleView"
+        android:visibility="gone"
+        android:layout_width="200dp"
+        android:layout_height="200dp"
+        android:layout_marginTop="@dimen/very_small_spacing"
+        app:layout_constraintTop_toBottomOf="@+id/contentParent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent" />
+
 </org.thoughtcrime.securesms.conversation.v2.messages.VisibleMessageContentView>
