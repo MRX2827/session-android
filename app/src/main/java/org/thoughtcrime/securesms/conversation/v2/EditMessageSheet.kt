@@ -1,11 +1,15 @@
 package org.thoughtcrime.securesms.conversation.v2
 
 import android.app.Dialog
+import android.content.res.ColorStateList
+import android.graphics.Color
 import android.os.Bundle
 import android.view.View
 import androidx.core.os.bundleOf
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.doOnPreDraw
+import androidx.core.view.isVisible
 import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.bottomsheet.BottomSheetBehavior
@@ -33,6 +37,8 @@ import org.thoughtcrime.securesms.database.RecipientRepository
 import org.thoughtcrime.securesms.database.model.MessageId
 import org.thoughtcrime.securesms.database.model.MessageRecord
 import org.thoughtcrime.securesms.pro.ProStatusManager
+import org.thoughtcrime.securesms.util.XsessionSurfaces
+import org.thoughtcrime.securesms.util.animateXsessionEntrance
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -52,11 +58,29 @@ class EditMessageSheet : BottomSheetDialogFragment(R.layout.fragment_edit_messag
 
     override fun onStart() {
         super.onStart()
-        (dialog as? BottomSheetDialog)?.behavior?.state = BottomSheetBehavior.STATE_EXPANDED
+        (dialog as? BottomSheetDialog)?.apply {
+            behavior.state = BottomSheetBehavior.STATE_EXPANDED
+            findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+                ?.setBackgroundColor(Color.TRANSPARENT)
+        }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         val binding = FragmentEditMessageBinding.bind(view)
+        val surfaces = XsessionSurfaces(view.context)
+        binding.editorSurface.background = surfaces.editor()
+        binding.editorHandle.background = surfaces.handle()
+        binding.editorIcon.background = surfaces.icon()
+        binding.editorIcon.imageTintList = ColorStateList.valueOf(surfaces.iconColor())
+        binding.editMessageText.background = surfaces.input()
+        surfaces.primaryButton(binding.editMessageSave)
+        binding.root.doOnPreDraw {
+            animateXsessionEntrance(
+                binding.editorHandle, binding.editorIcon, binding.editMessageTitle,
+                binding.editMessageCancel, binding.editorLabel, binding.editMessageText,
+                binding.editMessageSave,
+            )
+        }
         val args = requireArguments()
         val id = MessageId(args.getLong(ARG_ID), args.getBoolean(ARG_MMS))
         val threadId = args.getLong(ARG_THREAD)
@@ -68,7 +92,7 @@ class EditMessageSheet : BottomSheetDialogFragment(R.layout.fragment_edit_messag
         binding.editMessageText.isEnabled = false
         binding.editMessageCancel.setOnClickListener { closeEditor(binding) }
         binding.editMessageText.doAfterTextChanged { value ->
-            binding.editMessageText.error = null
+            binding.editorError.isVisible = false
             val text = value?.toString()?.trim().orEmpty()
             binding.editMessageSave.isEnabled = text.isNotEmpty() && original?.body != text
         }
@@ -85,7 +109,7 @@ class EditMessageSheet : BottomSheetDialogFragment(R.layout.fragment_edit_messag
             if (loaded == null || loaded.threadId != threadId ||
                 !loaded.isOutgoing || !MessageEditDatabase.canEditBody(loaded)
             ) {
-                binding.editMessageText.error = getString(R.string.xsessionEditUnavailable)
+                showError(binding, R.string.xsessionEditUnavailable)
                 return@launch
             }
             original = loaded
@@ -152,10 +176,16 @@ class EditMessageSheet : BottomSheetDialogFragment(R.layout.fragment_edit_messag
                 if (error == null) {
                     closeEditor(binding)
                 } else {
-                    binding.editMessageText.error = getString(error)
+                    showError(binding, error)
                 }
             }
         }
+    }
+
+    private fun showError(binding: FragmentEditMessageBinding, error: Int) {
+        binding.editorError.setText(error)
+        binding.editorError.isVisible = true
+        animateXsessionEntrance(binding.editorError)
     }
 
     private fun setSaving(binding: FragmentEditMessageBinding, saving: Boolean) {

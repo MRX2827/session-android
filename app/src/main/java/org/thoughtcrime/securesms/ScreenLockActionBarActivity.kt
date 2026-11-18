@@ -18,10 +18,14 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import network.loki.messenger.BuildConfig
 import org.session.libsession.utilities.TextSecurePreferences.Companion.isScreenLockEnabled
 import org.session.libsignal.utilities.Log
 import org.thoughtcrime.securesms.auth.LoginStateRepository
 import org.thoughtcrime.securesms.home.HomeActivity
+import org.thoughtcrime.securesms.preferences.HelpSettingsActivity
+import org.thoughtcrime.securesms.updates.XsessionUpdateAnnouncements
+import org.thoughtcrime.securesms.updates.showXsessionUpdateBanners
 import org.thoughtcrime.securesms.migration.DatabaseMigrationManager
 import org.thoughtcrime.securesms.mms.PartAuthority
 import org.thoughtcrime.securesms.migration.DatabaseMigrationStateActivity
@@ -97,6 +101,9 @@ abstract class ScreenLockActionBarActivity : BaseActionBarActivity() {
     @Inject
     lateinit var appVisibilityManager: AppVisibilityManager
 
+    @Inject
+    lateinit var xsessionUpdateAnnouncements: dagger.Lazy<XsessionUpdateAnnouncements>
+
     override fun onCreate(savedInstanceState: Bundle?) {
         Log.i(TAG, "ScreenLockActionBarActivity.onCreate(" + savedInstanceState + ")")
 
@@ -112,6 +119,11 @@ abstract class ScreenLockActionBarActivity : BaseActionBarActivity() {
         if (!isFinishing) {
             initializeClearKeyReceiver()
             onCreate(savedInstanceState, true)
+            if (BuildConfig.XSESSION_OTA_ENABLED && this !is HelpSettingsActivity) {
+                showXsessionUpdateBanners(xsessionUpdateAnnouncements.get()) {
+                    !isFinishing && !isScreenLocked() && loginStateRepository.peekLoginState() != null
+                }
+            }
         }
     }
 

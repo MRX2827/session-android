@@ -25,11 +25,13 @@ import androidx.hilt.work.HiltWorkerFactory
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import androidx.work.Configuration
 import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import dagger.Lazy
+import org.thoughtcrime.securesms.updates.XsessionUpdateAnnouncements
 import dagger.hilt.EntryPoints
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.Dispatchers
@@ -78,6 +80,7 @@ import kotlin.concurrent.Volatile
 @HiltAndroidApp
 class ApplicationContext : Application(), DefaultLifecycleObserver, Configuration.Provider, SingletonImageLoader.Factory {
     @Inject lateinit var messagingModuleConfiguration: Lazy<MessagingModuleConfiguration>
+    @Inject lateinit var xsessionUpdateAnnouncements: Lazy<XsessionUpdateAnnouncements>
     @Inject lateinit var workerFactory: Lazy<HiltWorkerFactory>
 
     @Inject lateinit var startupComponents: Lazy<OnAppStartupComponents>
@@ -171,12 +174,16 @@ class ApplicationContext : Application(), DefaultLifecycleObserver, Configuratio
         isAppVisible = true
         Log.i(TAG, "App is now visible.")
         KeyCachingService.onAppForegrounded(this)
+        if (BuildConfig.XSESSION_OTA_ENABLED) {
+            xsessionUpdateAnnouncements.get().checkOnForeground(owner.lifecycleScope)
+        }
     }
 
     override fun onStop(owner: LifecycleOwner) {
         isAppVisible = false
         Log.i(TAG, "App is no longer visible.")
         KeyCachingService.onAppBackgrounded(this)
+        if (BuildConfig.XSESSION_OTA_ENABLED) xsessionUpdateAnnouncements.get().clearBanner()
     }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader {

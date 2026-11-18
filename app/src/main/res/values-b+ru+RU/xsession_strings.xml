@@ -16,4 +16,8 @@
     <string name="xsessionUpdateError">Не удалось получить или проверить обновление. Попробуйте ещё раз.</string>
     <string name="xsessionUpdatePermission">Разрешите Xsession устанавливать приложения в настройках Android. После возврата откроется установщик.</string>
     <string name="xsessionUpdateOpenSettings">Открыть настройки Android</string>
+    <string name="xsessionUpdateBannerVersion">Версия %1$s · %2$d МБ</string>
+    <string name="xsessionWhatsNew">Что нового</string>
+    <string name="xsessionUpdateBannerFallback">Новая сборка готова к скачиванию.</string>
+    <string name="xsessionUpdateLater">Позже</string>
 </resources>

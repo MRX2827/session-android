@@ -17,4 +17,8 @@
     <string name="xsessionUpdatePermission">Allow Xsession to install apps in Android settings. The installer will open when you return.</string>
     <string name="xsessionUpdateOpenSettings">Open Android settings</string>
     <string name="qa_xsession_check_updates" translatable="false">xsession_check_updates</string>
+    <string name="xsessionUpdateBannerVersion">Version %1$s · %2$d MB</string>
+    <string name="xsessionWhatsNew">What’s new</string>
+    <string name="xsessionUpdateBannerFallback">A new build is ready to download.</string>
+    <string name="xsessionUpdateLater">Later</string>
 </resources>

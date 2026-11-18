@@ -2,6 +2,7 @@ package org.thoughtcrime.securesms.preferences
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -19,6 +20,7 @@ import org.thoughtcrime.securesms.FullComposeScreenLockActivity
 import org.thoughtcrime.securesms.permissions.Permissions
 import org.thoughtcrime.securesms.preferences.compose.HelpSettingsScreen
 import org.thoughtcrime.securesms.preferences.compose.HelpSettingsViewModel
+import org.thoughtcrime.securesms.updates.XsessionUpdateAnnouncements
 import org.thoughtcrime.securesms.updates.XsessionUpdates
 import java.io.File
 import javax.inject.Inject
@@ -26,6 +28,7 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class HelpSettingsActivity: FullComposeScreenLockActivity() {
     @Inject lateinit var updates: XsessionUpdates
+    @Inject lateinit var updateAnnouncements: XsessionUpdateAnnouncements
 
     private var updateJob: Job? = null
     private var pendingApk: File? = null
@@ -34,6 +37,19 @@ class HelpSettingsActivity: FullComposeScreenLockActivity() {
         pendingApk = null
         if (file != null && packageManager.canRequestPackageInstalls()) openInstaller(file)
         else file?.delete()
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?, ready: Boolean) {
+        super.onCreate(savedInstanceState, ready)
+        if (!BuildConfig.XSESSION_OTA_ENABLED || !ready) return
+        val version = intent.getLongExtra(XSESSION_UPDATE_VERSION, 0L)
+        if (version <= 0L) return
+        intent.removeExtra(XSESSION_UPDATE_VERSION)
+        runUpdateTask(R.string.xsessionDownloadingUpdate) {
+            val release = updateAnnouncements.checkedRelease(version)
+                ?: updates.check()?.takeIf { it.versionCode == version }
+            if (release == null) showUpdateError() else offerInstall(updates.download(release))
+        }
     }
 
     @Composable
@@ -125,8 +141,9 @@ class HelpSettingsActivity: FullComposeScreenLockActivity() {
         Toast.makeText(this, R.string.xsessionUpdateError, Toast.LENGTH_LONG).show()
     }
 
-    private companion object {
-        const val MB = 1024L * 1024L
+    companion object {
+        internal const val XSESSION_UPDATE_VERSION = "xsession_update_version"
+        private const val MB = 1024L * 1024L
     }
 
     override fun onRequestPermissionsResult(

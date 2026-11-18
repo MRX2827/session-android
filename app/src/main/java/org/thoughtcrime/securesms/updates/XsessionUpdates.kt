@@ -27,7 +27,14 @@ class XsessionUpdates @Inject constructor(
     private val client: OkHttpClient,
 ) {
 
-    data class Release(val versionCode: Long, val size: Long, val sha256: String, val url: String)
+    data class Release(
+        val versionCode: Long,
+        val size: Long,
+        val sha256: String,
+        val url: String,
+        val versionLabel: String,
+        val notes: String,
+    )
 
     suspend fun check(): Release? = withContext(Dispatchers.IO) {
         val installedVersion = PackageInfoCompat.getLongVersionCode(installedPackage())
@@ -132,7 +139,17 @@ class XsessionUpdates @Inject constructor(
                 for (asset in release.assets) {
                     if (asset.name != APK || asset.downloadUrl != url || asset.size !in 1..MAX_APK_BYTES) continue
                     val sha = shaFormat.matchEntire(asset.digest.orEmpty())?.groupValues?.get(1) ?: continue
-                    best = Release(version, asset.size, sha, url)
+                    val label = release.name.orEmpty().trim().removePrefix("Xsession ").take(40)
+                    val notes = release.body.orEmpty().lineSequence().map { it.trim() }
+                        .filter { it.isNotBlank() && !it.startsWith("#") && !it.startsWith("[") }
+                        .map {
+                            it.replace("**", "").replace("`", "")
+                                .replace(Regex("^[-*] +"), "• ")
+                                .take(220)
+                        }
+                        .take(3)
+                        .joinToString("\n")
+                    best = Release(version, asset.size, sha, url, label.ifBlank { version.toString() }, notes)
                     break
                 }
             }
@@ -144,6 +161,8 @@ class XsessionUpdates @Inject constructor(
     private data class GitHubRelease(
         @SerialName("tag_name") val tag: String,
         val draft: Boolean = false,
+        val name: String? = null,
+        val body: String? = null,
         val assets: List<GitHubAsset> = emptyList(),
     )
 
