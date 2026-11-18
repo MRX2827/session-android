@@ -12,14 +12,27 @@
     <string name="xsessionDownloadingUpdate">Downloading update…</string>
     <string name="xsessionUpdateCurrent">You have the latest Xsession build.</string>
     <string name="xsessionUpdateAvailable">Xsession update available</string>
-    <string name="xsessionUpdateDescription">Build %1$d · %2$d MB. Android will ask you to confirm installation.</string>
-    <string name="xsessionUpdateError">Couldn’t fetch or verify the update. Try again.</string>
     <string name="xsessionUpdatePermission">Allow Xsession to install apps in Android settings. The installer will open when you return.</string>
     <string name="xsessionUpdateOpenSettings">Open Android settings</string>
     <string name="qa_xsession_check_updates" translatable="false">xsession_check_updates</string>
-    <string name="xsessionUpdateBannerVersion">Version %1$s · %2$d MB</string>
+    <string name="xsessionUpdateBannerVersion">Version %1$s · %2$s</string>
     <string name="xsessionWhatsNew">What’s new</string>
     <string name="xsessionUpdateBannerFallback">A new build is ready to download.</string>
     <string name="xsessionUpdateLater">Later</string>
     <string name="xsessionCircleCameraSwitchFailed">Couldn’t switch cameras.</string>
+    <string name="xsessionUpdateTitle">Xsession update</string>
+    <string name="xsessionUpdatePercent">%1$d%%</string>
+    <string name="xsessionUpdateDownloadedBytes">Downloaded %1$s of %2$s</string>
+    <string name="xsessionUpdateVerifying">Verifying update…</string>
+    <string name="xsessionUpdateVerifyingDetail">Checking the download and its signature.</string>
+    <string name="xsessionUpdateReady">Ready to install</string>
+    <string name="xsessionUpdateReadyDetail">The APK is verified. Android will ask you to confirm installation.</string>
+    <string name="xsessionUpdateInstall">Install</string>
+    <string name="xsessionUpdateFailed">Update interrupted</string>
+    <string name="xsessionUpdateCheckFailed">Could not check GitHub for updates. Try again.</string>
+    <string name="xsessionUpdateDownloadFailed">The download did not finish. Check your connection and try again.</string>
+    <string name="xsessionUpdateVerificationFailed">The APK failed verification. Download it again.</string>
+    <string name="xsessionUpdateInstallFailed">Could not open the Android installer.</string>
+    <string name="xsessionUpdateRetry">Try again</string>
+    <string name="xsessionUpdateClose">Close</string>
 </resources>

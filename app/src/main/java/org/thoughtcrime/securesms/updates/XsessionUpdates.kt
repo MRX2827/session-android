@@ -7,7 +7,10 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.content.pm.PackageInfoCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -49,22 +52,35 @@ class XsessionUpdates @Inject constructor(
         }
     }
 
-    suspend fun download(release: Release): File = withContext(Dispatchers.IO) {
+    suspend fun download(
+        release: Release,
+        onProgress: (downloadedBytes: Long) -> Unit,
+        onVerifying: () -> Unit,
+    ): File = withContext(Dispatchers.IO) {
         val updateDir = File(context.cacheDir, "xsession-updates")
         check(updateDir.exists() || updateDir.mkdirs())
         val outdated = System.currentTimeMillis() - 86_400_000L
         updateDir.listFiles()?.filter { it.lastModified() < outdated }?.forEach(File::delete)
         val file = File.createTempFile("xsession-", ".apk", updateDir)
         val digest = MessageDigest.getInstance("SHA-256")
+        val call = client.newCall(Request.Builder().url(release.url).build())
+        val cancelCall = launch(start = CoroutineStart.UNDISPATCHED) {
+            try {
+                awaitCancellation()
+            } finally {
+                call.cancel()
+            }
+        }
         try {
-            client.newCall(Request.Builder().url(release.url).build()).execute().use { response ->
+            call.execute().use { response ->
                 val body = response.body?.takeIf { response.isSuccessful }
                     ?: throw IOException("APK download returned HTTP ${response.code}")
                 if (body.contentLength() >= 0) check(body.contentLength() == release.size)
                 body.byteStream().use { source ->
                     file.outputStream().buffered().use { sink ->
-                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                        val buffer = ByteArray(64 * 1024)
                         var count = 0L
+                        var reportedPercent = 0
                         while (true) {
                             coroutineContext.ensureActive()
                             val read = source.read(buffer)
@@ -73,18 +89,28 @@ class XsessionUpdates @Inject constructor(
                             check(count <= release.size) { "APK was larger than its release asset" }
                             digest.update(buffer, 0, read)
                             sink.write(buffer, 0, read)
+                            val percent = (count * 100 / release.size).toInt()
+                            if (percent != reportedPercent) {
+                                reportedPercent = percent
+                                onProgress(count)
+                            }
                         }
                         check(count == release.size) { "Incomplete APK" }
                     }
                 }
             }
+            coroutineContext.ensureActive()
+            onVerifying()
             val actualHash = digest.digest().joinToString("") { "%02x".format(it) }
             check(actualHash.equals(release.sha256, ignoreCase = true)) { "APK digest does not match" }
             verifyPackage(file, release.versionCode)
+            coroutineContext.ensureActive()
             file
         } catch (e: Exception) {
             file.delete()
             throw e
+        } finally {
+            cancelCall.cancel()
         }
     }
 

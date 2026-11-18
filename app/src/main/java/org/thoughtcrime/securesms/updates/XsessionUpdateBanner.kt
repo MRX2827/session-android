@@ -1,8 +1,8 @@
 package org.thoughtcrime.securesms.updates
 
 import android.animation.ValueAnimator
-import android.content.Intent
 import android.content.res.ColorStateList
+import android.text.format.Formatter
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.widget.FrameLayout
@@ -17,7 +17,6 @@ import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.launch
 import network.loki.messenger.R
 import network.loki.messenger.databinding.ViewXsessionUpdateBannerBinding
-import org.thoughtcrime.securesms.preferences.HelpSettingsActivity
 import org.thoughtcrime.securesms.util.XsessionSurfaces
 import org.thoughtcrime.securesms.util.animateXsessionEntrance
 import kotlin.math.roundToInt
@@ -37,10 +36,7 @@ internal fun AppCompatActivity.showXsessionUpdateBanners(
                             displayed = XsessionUpdateBanner.show(this@showXsessionUpdateBanners, release) { download ->
                                 announcements.dismiss(release.versionCode)
                                 if (download && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
-                                    startActivity(
-                                        Intent(this@showXsessionUpdateBanners, HelpSettingsActivity::class.java)
-                                            .putExtra(HelpSettingsActivity.XSESSION_UPDATE_VERSION, release.versionCode)
-                                    )
+                                    XsessionUpdateSheet.show(supportFragmentManager, release.versionCode)
                                 }
                             }
                         }
@@ -114,7 +110,7 @@ private class XsessionUpdateBanner(
             binding.updateVersion.text = activity.getString(
                 R.string.xsessionUpdateBannerVersion,
                 release.versionLabel,
-                (release.size + 1_048_575L) / 1_048_576L,
+                Formatter.formatShortFileSize(activity, release.size),
             )
             binding.updateNotes.text = release.notes.ifBlank {
                 activity.getString(R.string.xsessionUpdateBannerFallback)
