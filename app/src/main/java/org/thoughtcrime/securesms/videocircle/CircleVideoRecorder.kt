@@ -4,11 +4,13 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.util.Rational
 import android.view.Surface
+import androidx.annotation.OptIn
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.Preview
 import androidx.camera.core.UseCaseGroup
 import androidx.camera.core.ViewPort
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.video.ExperimentalPersistentRecording
 import androidx.camera.video.FallbackStrategy
 import androidx.camera.video.FileOutputOptions
 import androidx.camera.video.Quality
@@ -38,6 +40,10 @@ class CircleVideoRecorder(context: Context) {
     private val appContext = context.applicationContext
 
     private var provider: ProcessCameraProvider? = null
+    private var owner: LifecycleOwner? = null
+    private var cameraPreview: Preview? = null
+    private var usingFrontCamera = false
+    private var hasBothCameras = false
     private var videoCapture: VideoCapture<Recorder>? = null
     private var recording: Recording? = null
     private var file: File? = null
@@ -47,17 +53,19 @@ class CircleVideoRecorder(context: Context) {
     @Volatile
     private var cancelled = false
 
+    val canSwitchCamera: Boolean
+        get() = hasBothCameras && cameraPreview != null && started && recording != null
+
     suspend fun bind(owner: LifecycleOwner, previewView: PreviewView) {
         val cameraProvider = ProcessCameraProvider.getInstance(appContext).await()
         provider = cameraProvider
 
-        val wantFront = VideoCircleUtils.useFrontCamera(appContext)
-        var selector = if (wantFront) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
-        if (!cameraProvider.hasCamera(selector)) {
-            selector = if (wantFront) CameraSelector.DEFAULT_BACK_CAMERA else CameraSelector.DEFAULT_FRONT_CAMERA
-        }
+        this.owner = owner
 
-        val preview = Preview.Builder().build().also { it.surfaceProvider = previewView.surfaceProvider }
+        val hasFront = cameraProvider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA)
+        val hasBack = cameraProvider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA)
+        hasBothCameras = hasFront && hasBack
+        usingFrontCamera = hasFront && (!hasBack || VideoCircleUtils.useFrontCamera(appContext))
 
         val recorder = Recorder.Builder()
             .setQualitySelector(
@@ -70,7 +78,42 @@ class CircleVideoRecorder(context: Context) {
             .build()
         val capture = VideoCapture.withOutput(recorder)
         videoCapture = capture
+        bindCamera(cameraProvider, owner, usingFrontCamera, previewView, capture)
+    }
 
+    /** Rebinds the same VideoCapture while leaving its MP4 recording and microphone active. */
+    fun switchCamera(previewView: PreviewView): Boolean {
+        if (!canSwitchCamera) return false
+        val cameraProvider = provider ?: return false
+        val lifecycleOwner = owner ?: return false
+        val capture = videoCapture ?: return false
+        val before = usingFrontCamera
+        unbindCamera()
+        return try {
+            bindCamera(cameraProvider, lifecycleOwner, !before, previewView, capture)
+            usingFrontCamera = !before
+            VideoCircleUtils.setUseFrontCamera(appContext, usingFrontCamera)
+            true
+        } catch (error: Exception) {
+            Log.e(TAG, "Unable to switch video circle camera", error)
+            try {
+                bindCamera(cameraProvider, lifecycleOwner, before, previewView, capture)
+            } catch (restoreError: Exception) {
+                Log.e(TAG, "Unable to restore video circle camera", restoreError)
+            }
+            false
+        }
+    }
+
+    private fun bindCamera(
+        cameraProvider: ProcessCameraProvider,
+        lifecycleOwner: LifecycleOwner,
+        front: Boolean,
+        previewView: PreviewView,
+        capture: VideoCapture<Recorder>,
+    ) {
+        val selector = if (front) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
+        val preview = Preview.Builder().build().also { it.surfaceProvider = previewView.surfaceProvider }
         val rotation = previewView.display?.rotation ?: Surface.ROTATION_0
         val group = UseCaseGroup.Builder()
             .addUseCase(preview)
@@ -82,11 +125,24 @@ class CircleVideoRecorder(context: Context) {
             )
             .build()
 
-        cameraProvider.unbindAll()
-        cameraProvider.bindToLifecycle(owner, selector, group)
+        try {
+            cameraProvider.bindToLifecycle(lifecycleOwner, selector, group)
+        } catch (error: Exception) {
+            cameraProvider.unbind(preview, capture)
+            throw error
+        }
+        cameraPreview = preview
+    }
+
+    private fun unbindCamera() {
+        val preview = cameraPreview ?: return
+        val capture = videoCapture ?: return
+        provider?.unbind(preview, capture)
+        cameraPreview = null
     }
 
     /** Starts recording. [onStarted] receives null on success, or the failure. */
+    @OptIn(ExperimentalPersistentRecording::class)
     @SuppressLint("MissingPermission") // checked by the caller before binding
     fun start(onStarted: (Throwable?) -> Unit) {
         val capture = videoCapture ?: return onStarted(IllegalStateException("Camera not bound"))
@@ -103,6 +159,7 @@ class CircleVideoRecorder(context: Context) {
         recording = capture.output
             .prepareRecording(appContext, options)
             .withAudioEnabled()
+            .asPersistentRecording()
             .start(ContextCompat.getMainExecutor(appContext)) { event ->
                 when (event) {
                     is VideoRecordEvent.Start -> {
@@ -111,6 +168,7 @@ class CircleVideoRecorder(context: Context) {
                     }
 
                     is VideoRecordEvent.Finalize -> {
+                        recording = null
                         val error = event.error
                         // Hitting the duration / size limit still leaves a perfectly valid file.
                         val ok = error == VideoRecordEvent.Finalize.ERROR_NONE ||
@@ -140,6 +198,7 @@ class CircleVideoRecorder(context: Context) {
     suspend fun stop(): Output? {
         recording?.stop()
         recording = null
+        unbindCamera()
         return done?.await()
     }
 
@@ -155,7 +214,8 @@ class CircleVideoRecorder(context: Context) {
     fun release() {
         recording?.stop()
         recording = null
-        provider?.unbindAll()
+        unbindCamera()
+        owner = null
         provider = null
         videoCapture = null
     }

@@ -343,6 +343,7 @@ class ConversationActivityV2 : ScreenLockActionBarActivity(), InputBarDelegate,
     // but recording the camera into a round preview. See the "Video circles" region below.
     private var circleRecorder: CircleVideoRecorder? = null
     private var circleJob: Job? = null
+    private var circleCameraSwitchJob: Job? = null
     private var isCircleSession = false
     private var circleStartedAt = 0L
     private val stopAudioHandler = Handler(Looper.getMainLooper())
@@ -916,6 +917,12 @@ class ConversationActivityV2 : ScreenLockActionBarActivity(), InputBarDelegate,
 
     override fun onPause() {
         super.onPause()
+    }
+
+    override fun onStop() {
+        // A persistent recording can keep its microphone active with no camera surface.
+        if (isCircleSession) cancelVoiceMessage()
+        super.onStop()
     }
 
     override fun getSystemService(name: String): Any? {
@@ -2913,7 +2920,10 @@ class ConversationActivityV2 : ScreenLockActionBarActivity(), InputBarDelegate,
                         circleStartedAt = System.currentTimeMillis()
                         voiceMessageStartTimestamp = circleStartedAt
                         binding.inputBar.voiceRecorderState = VoiceRecorderState.Recording
-                        binding.circleRecordingView.onRecordingStarted()
+                        val onFlip = if (recorder.canSwitchCamera) {
+                            { flipCircleCamera(recorder) }
+                        } else null
+                        binding.circleRecordingView.onRecordingStarted(onFlip)
 
                         // Video circles are limited to 60 seconds
                         stopAudioHandler.postDelayed(
@@ -2932,8 +2942,29 @@ class ConversationActivityV2 : ScreenLockActionBarActivity(), InputBarDelegate,
         }
     }
 
+    private fun flipCircleCamera(recorder: CircleVideoRecorder) {
+        if (circleRecorder !== recorder || circleCameraSwitchJob?.isActive == true) return
+
+        circleCameraSwitchJob = lifecycleScope.launch {
+            val switched = try {
+                binding.circleRecordingView.flipCamera(recorder::switchCamera)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                Log.e(TAG, "Error switching video circle cameras", error)
+                false
+            }
+            if (!switched && circleRecorder === recorder) {
+                Toast.makeText(this@ConversationActivityV2, R.string.xsessionCircleCameraSwitchFailed, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     private fun abortCircleRecording(recorder: CircleVideoRecorder, error: Throwable) {
         Log.e(TAG, "Error while starting video circle recording", error)
+        stopAudioHandler.removeCallbacks(stopVoiceMessageRecordingTask)
+        circleCameraSwitchJob?.cancel()
+        circleCameraSwitchJob = null
         isCircleSession = false
         circleRecorder = null
         circleJob?.cancel()
@@ -2950,6 +2981,9 @@ class ConversationActivityV2 : ScreenLockActionBarActivity(), InputBarDelegate,
     }
 
     private fun stopCircleRecording(send: Boolean) {
+        stopAudioHandler.removeCallbacks(stopVoiceMessageRecordingTask)
+        circleCameraSwitchJob?.cancel()
+        circleCameraSwitchJob = null
         isCircleSession = false
         val recorder = circleRecorder
         circleRecorder = null

@@ -20,4 +20,5 @@
     <string name="xsessionWhatsNew">Что нового</string>
     <string name="xsessionUpdateBannerFallback">Новая сборка готова к скачиванию.</string>
     <string name="xsessionUpdateLater">Позже</string>
+    <string name="xsessionCircleCameraSwitchFailed">Не удалось переключить камеру.</string>
 </resources>
