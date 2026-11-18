@@ -2,7 +2,6 @@ package org.session.libsession.messaging.messages.control
 
 import com.google.protobuf.CodedInputStream
 import com.google.protobuf.CodedOutputStream
-import com.google.protobuf.WireFormat
 import org.session.libsession.database.MessageDataProvider
 import org.session.libsession.utilities.Address
 import org.session.protos.SessionProtos
@@ -39,21 +38,12 @@ class MessageEdit(
         const val MAX_BODY_BYTES = 40_000
 
         fun fromProto(proto: SessionProtos.Content): MessageEdit? {
-            val content = CodedInputStream.newInstance(proto.toByteArray())
-            while (!content.isAtEnd) {
-                val tag = content.readTag()
-                if (WireFormat.getTagFieldNumber(tag) == EXTENSION_FIELD &&
-                    WireFormat.getTagWireType(tag) == WireFormat.WIRETYPE_LENGTH_DELIMITED
-                ) {
-                    return decodePayload(content.readByteArray())
-                }
-                if (!content.skipField(tag)) break
-            }
-            return null
+            val payload = proto.unknownFields.getField(EXTENSION_FIELD).lengthDelimitedList.firstOrNull()
+                ?: return null
+            return decodePayload(payload.newCodedInput())
         }
 
-        private fun decodePayload(bytes: ByteArray): MessageEdit? {
-            val input = CodedInputStream.newInstance(bytes)
+        private fun decodePayload(input: CodedInputStream): MessageEdit? {
             var timestamp = 0L
             var body: String? = null
             var syncTarget: String? = null

@@ -28,8 +28,8 @@ configurations.configureEach {
 
 val xsessionRelease = providers.gradleProperty("xsessionRelease").orNull == "true"
 val xsessionFastBuild = xsessionRelease && providers.gradleProperty("xsessionFastBuild").orNull == "true"
-val canonicalVersionCode = if (xsessionRelease) 460 else 456
-val canonicalVersionName = if (xsessionRelease) "1.33.8-x4" else "1.33.8"
+val canonicalVersionCode = if (xsessionRelease) 461 else 456
+val canonicalVersionName = if (xsessionRelease) "1.33.8-x5" else "1.33.8"
 
 val postFixSize = 10
 val abiPostFix = mapOf(

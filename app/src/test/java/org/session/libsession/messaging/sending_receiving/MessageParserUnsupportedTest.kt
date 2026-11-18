@@ -12,6 +12,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.session.libsession.messaging.messages.UnsupportedMessage
+import org.session.libsession.messaging.messages.control.MessageEdit
 import org.session.libsession.network.SnodeClock
 import org.session.libsession.utilities.ConfigFactoryProtocol
 import org.session.libsession.utilities.UserConfigs
@@ -106,6 +107,21 @@ class MessageParserUnsupportedTest {
         assertFalse(isUnknownType(content {
             setDataMessage(SessionProtos.DataMessage.newBuilder().setBody("synthetic"))
         }))
+    }
+
+    @Test
+    fun `an Xsession edit without a data message is recognized by a recipient`() {
+        val edit = MessageEdit(messageTimestampMs - 1_000, "Исправленный текст").apply {
+            sentTimestamp = messageTimestampMs
+        }
+        val plaintext = content { edit.toProto(this, mockk()) }.toByteArray()
+        val parsed = SessionProtos.Content.parseFrom(plaintext)
+
+        assertFalse(parsed.hasDataMessage())
+        assertTrue(hasValidKnownContent(parsed))
+        assertFalse(UnsupportedMessageDetection.isUnknownType(plaintext) {
+            hasValidKnownContent(parsed)
+        })
     }
 
     @Test

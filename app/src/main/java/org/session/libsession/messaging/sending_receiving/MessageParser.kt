@@ -86,8 +86,8 @@ class MessageParser @Inject constructor(
         MessageRequestResponse.fromProto(proto) ?:
         CallMessage.fromProto(proto) ?:
         GroupUpdated.fromProto(proto) ?:
-        VisibleMessage.fromProto(proto) ?:
-        MessageEdit.fromProto(proto)
+        MessageEdit.fromProto(proto) ?:
+        VisibleMessage.fromProto(proto)
 
         if (message == null) {
             throw NonRetryableException("Unknown message type")

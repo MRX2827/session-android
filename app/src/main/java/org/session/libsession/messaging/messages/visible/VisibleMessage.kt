@@ -51,7 +51,7 @@ data class VisibleMessage(
         const val TAG = "VisibleMessage"
 
         fun fromProto(proto: SessionProtos.Content): VisibleMessage? =
-            proto.dataMessage?.let { VisibleMessage().apply {
+            proto.takeIf { it.hasDataMessage() }?.dataMessage?.let { VisibleMessage().apply {
                 if (it.hasSyncTarget()) syncTarget = it.syncTarget
                 text = it.body
                 // Attachments are handled in MessageReceiver
