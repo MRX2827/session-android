@@ -23,6 +23,7 @@ import org.session.libsession.messaging.sending_receiving.MessageSender
 import org.session.libsession.network.SnodeClock
 import org.session.libsession.utilities.Address
 import org.session.libsignal.crypto.MnemonicCodec
+import org.session.libsignal.utilities.Log
 import org.session.libsignal.utilities.toHexString
 import org.thoughtcrime.securesms.auth.LoginStateRepository
 import org.thoughtcrime.securesms.crypto.MnemonicUtilities
@@ -67,17 +68,24 @@ class EditMessageSheet : BottomSheetDialogFragment(R.layout.fragment_edit_messag
         binding.editMessageText.isEnabled = false
         binding.editMessageCancel.setOnClickListener { closeEditor(binding) }
         binding.editMessageText.doAfterTextChanged { value ->
-            binding.editMessageField.error = null
+            binding.editMessageText.error = null
             val text = value?.toString()?.trim().orEmpty()
             binding.editMessageSave.isEnabled = text.isNotEmpty() && original?.body != text
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
-            val loaded = withContext(Dispatchers.IO) { messages.getMessageById(id) }
+            val loaded = try {
+                withContext(Dispatchers.IO) { messages.getMessageById(id) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Unable to load the message for editing", e)
+                null
+            }
             if (loaded == null || loaded.threadId != threadId ||
                 !loaded.isOutgoing || !MessageEditDatabase.canEditBody(loaded)
             ) {
-                binding.editMessageField.error = getString(R.string.xsessionEditUnavailable)
+                binding.editMessageText.error = getString(R.string.xsessionEditUnavailable)
                 return@launch
             }
             original = loaded
@@ -87,9 +95,11 @@ class EditMessageSheet : BottomSheetDialogFragment(R.layout.fragment_edit_messag
                 setSelection(length())
                 requestFocus()
                 post {
-                    dialog?.window?.let { window ->
-                        WindowCompat.getInsetsController(window, this)
-                            .show(WindowInsetsCompat.Type.ime())
+                    if (isAttachedToWindow && hasFocus()) {
+                        dialog?.window?.let { window ->
+                            WindowCompat.getInsetsController(window, this)
+                                .show(WindowInsetsCompat.Type.ime())
+                        }
                     }
                 }
             }
@@ -142,7 +152,7 @@ class EditMessageSheet : BottomSheetDialogFragment(R.layout.fragment_edit_messag
                 if (error == null) {
                     closeEditor(binding)
                 } else {
-                    binding.editMessageField.error = getString(error)
+                    binding.editMessageText.error = getString(error)
                 }
             }
         }

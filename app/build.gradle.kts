@@ -27,8 +27,9 @@ configurations.configureEach {
 }
 
 val xsessionRelease = providers.gradleProperty("xsessionRelease").orNull == "true"
-val canonicalVersionCode = if (xsessionRelease) 457 else 456
-val canonicalVersionName = if (xsessionRelease) "1.33.8-x1" else "1.33.8"
+val xsessionFastBuild = xsessionRelease && providers.gradleProperty("xsessionFastBuild").orNull == "true"
+val canonicalVersionCode = if (xsessionRelease) 458 else 456
+val canonicalVersionName = if (xsessionRelease) "1.33.8-x2" else "1.33.8"
 
 val postFixSize = 10
 val abiPostFix = mapOf(
@@ -179,8 +180,8 @@ android {
 
     buildTypes {
         getByName("release") {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            isMinifyEnabled = !xsessionFastBuild
+            isShrinkResources = !xsessionFastBuild
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 file("proguard-rules.pro")
