@@ -49,6 +49,7 @@ import org.session.libsession.utilities.recipients.RecipientData
 import org.thoughtcrime.securesms.components.emoji.EmojiImageView
 import org.thoughtcrime.securesms.components.emoji.RecentEmojiPageModel
 import org.thoughtcrime.securesms.components.menu.ActionItem
+import org.thoughtcrime.securesms.database.MessageEditDatabase
 import org.thoughtcrime.securesms.database.MmsSmsDatabase
 import org.thoughtcrime.securesms.database.ThreadDatabase
 import org.thoughtcrime.securesms.database.getRecipientAddress
@@ -668,6 +669,12 @@ class ConversationReactionOverlay : FrameLayout {
             items += ActionItem(R.attr.menu_reply_icon, R.string.reply, { handleActionItemClicked(Action.REPLY) }, R.string.AccessibilityId_reply)
         }
 
+        if (message.isOutgoing && !threadRecipient.blocked &&
+            MessageEditDatabase.supports(recipient) && MessageEditDatabase.canEditBody(message)
+        ) {
+            items += ActionItem(R.attr.menu_edit_icon, R.string.edit, { handleActionItemClicked(Action.EDIT) })
+        }
+
         // Copy message text
         if (!containsControlMessage && hasText && !isDeleteOnly) {
             items += ActionItem(R.attr.menu_copy_icon, R.string.copy, { handleActionItemClicked(Action.COPY_MESSAGE) })
@@ -835,6 +842,7 @@ class ConversationReactionOverlay : FrameLayout {
 
     enum class Action {
         REPLY,
+        EDIT,
         RESEND,
         RESYNC,
         DOWNLOAD,

@@ -1,0 +1,19 @@
+<resources>
+    <string name="xsessionEditMessage">Изменить сообщение</string>
+    <string name="xsessionMessageText">Текст сообщения</string>
+    <string name="xsessionMessageEdited">Изменено</string>
+    <string name="xsessionSavingEdit">Сохранение…</string>
+    <string name="xsessionEditUnavailable">Сейчас это сообщение нельзя изменить. Откройте редактор заново, чтобы увидеть текущую версию.</string>
+    <string name="xsessionEditTooLong">Текст сообщения слишком длинный.</string>
+    <string name="xsessionEditRecoveryPhrase">Уберите пароль восстановления из текста перед сохранением.</string>
+    <string name="xsessionEditFailed">Не удалось сохранить правку. Попробуйте ещё раз.</string>
+    <string name="xsessionCheckUpdates">Проверить обновления Xsession</string>
+    <string name="xsessionCheckingUpdates">Проверяем GitHub…</string>
+    <string name="xsessionDownloadingUpdate">Скачиваем обновление…</string>
+    <string name="xsessionUpdateCurrent">У вас установлена последняя версия Xsession.</string>
+    <string name="xsessionUpdateAvailable">Доступно обновление Xsession</string>
+    <string name="xsessionUpdateDescription">Сборка %1$d · %2$d МБ. Android попросит подтвердить установку.</string>
+    <string name="xsessionUpdateError">Не удалось получить или проверить обновление. Попробуйте ещё раз.</string>
+    <string name="xsessionUpdatePermission">Разрешите Xsession устанавливать приложения в настройках Android. После возврата откроется установщик.</string>
+    <string name="xsessionUpdateOpenSettings">Открыть настройки Android</string>
+</resources>

@@ -49,6 +49,7 @@ import network.loki.messenger.libsession_util.util.Conversation
 import network.loki.messenger.libsession_util.protocol.SessionProtocol
 import network.loki.messenger.libsession_util.util.asSequence
 import org.session.libsession.messaging.messages.Message
+import org.session.libsession.messaging.messages.control.MessageEdit
 import org.session.libsession.messaging.messages.visible.VisibleMessage
 import org.session.libsession.network.SnodeClock
 import org.session.libsession.utilities.ConfigFactoryProtocol
@@ -872,7 +873,7 @@ class ProStatusManager @Inject constructor(
     /**
      * Returns the max length that a visible message can have based on its Pro status
      */
-    fun getIncomingMessageMaxLength(message: VisibleMessage): Int {
+    fun getIncomingMessageMaxLength(message: Message): Int {
         // if the debug is set, return that
         // Pre-launch nothing is restricted for lacking Pro, so the Pro limit applies to every sender
         if (prefs.forceIncomingMessagesAsPro() || !isPostPro()) return MAX_CHARACTER_PRO
@@ -930,10 +931,13 @@ class ProStatusManager @Inject constructor(
             proFeatures += configs.userProfile.getProFeatures().asSequence()
         }
 
-        if (message is VisibleMessage) {
-            // Let libsession own the count -> feature policy: we count codepoints natively and
-            // hand it the count; it returns the message feature bitset (e.g. higher char limit).
-            val text = message.text.orEmpty()
+        val text = when (message) {
+            is VisibleMessage -> message.text.orEmpty()
+            is MessageEdit -> message.body
+            else -> null
+        }
+        if (text != null) {
+            // Let libsession own the count-to-feature policy for extended message lengths.
             SessionProtocol.proFeaturesForMessage(text.codePointCount(0, text.length))
                 .toProMessageFeatures(proFeatures)
         }

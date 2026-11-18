@@ -21,6 +21,7 @@ import org.session.libsession.messaging.messages.control.DataExtractionNotificat
 import org.session.libsession.messaging.messages.control.ExpirationTimerUpdate
 import org.session.libsession.messaging.messages.control.GroupUpdated
 import org.session.libsession.messaging.messages.control.UnsendRequest
+import org.session.libsession.messaging.messages.control.MessageEdit
 import org.session.libsession.messaging.messages.visible.LinkPreview
 import org.session.libsession.messaging.messages.visible.Quote
 import org.session.libsession.messaging.messages.visible.VisibleMessage
@@ -45,6 +46,7 @@ import org.session.libsignal.utilities.Hex
 import org.session.libsignal.utilities.IdPrefix
 import org.session.libsignal.utilities.Log
 import org.session.protos.SessionProtos
+import org.thoughtcrime.securesms.database.MessageEditDatabase
 import org.thoughtcrime.securesms.api.snode.StoreMessageApi
 import org.thoughtcrime.securesms.api.swarm.SwarmApiExecutor
 import org.thoughtcrime.securesms.api.swarm.SwarmApiRequest
@@ -65,6 +67,7 @@ import org.session.libsession.messaging.sending_receiving.quotes.QuoteModel as S
 @Singleton
 class MessageSender @Inject constructor(
     private val storage: StorageProtocol,
+    private val messageEdits: MessageEditDatabase,
     private val configFactory: ConfigFactoryProtocol,
     private val recipientRepository: RecipientRepository,
     private val messageDataProvider: MessageDataProvider,
@@ -305,6 +308,11 @@ class MessageSender @Inject constructor(
 
             if (sendResult.isSuccess) {
                 message.serverHash = sendResult.getOrThrow().hash
+                if (message is MessageEdit && message.syncTarget == null) {
+                    message.threadID?.let { threadId ->
+                        messageEdits.apply(threadId, requireNotNull(message.sender), true, message)
+                    }
+                }
                 handleSuccessfulMessageSend(message, destination, isSyncMessage)
             } else {
                 throw sendResult.exceptionOrNull()!!
@@ -511,6 +519,7 @@ class MessageSender @Inject constructor(
         if (destination is Destination.Contact && !isSyncMessage && message !is DataExtractionNotification) {
             if (message is VisibleMessage) message.syncTarget = destination.publicKey
             if (message is ExpirationTimerUpdate) message.syncTarget = destination.publicKey
+            if (message is MessageEdit) message.syncTarget = destination.publicKey
 
             message.id?.let(storage::markAsSyncing)
             scope.launch {

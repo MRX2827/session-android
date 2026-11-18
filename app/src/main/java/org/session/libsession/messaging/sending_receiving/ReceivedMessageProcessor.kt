@@ -20,6 +20,7 @@ import org.session.libsession.messaging.messages.control.CallMessage
 import org.session.libsession.messaging.messages.control.DataExtractionNotification
 import org.session.libsession.messaging.messages.control.ExpirationTimerUpdate
 import org.session.libsession.messaging.messages.control.GroupUpdated
+import org.session.libsession.messaging.messages.control.MessageEdit
 import org.session.libsession.messaging.messages.control.MessageRequestResponse
 import org.session.libsession.messaging.messages.control.ReadReceipt
 import org.session.libsession.messaging.messages.control.TypingIndicator
@@ -44,6 +45,8 @@ import org.session.libsession.utilities.withUserConfigs
 import org.session.libsignal.utilities.AccountId
 import org.session.libsignal.utilities.Log
 import org.session.protos.SessionProtos
+import org.thoughtcrime.securesms.pro.ProStatusManager
+import org.thoughtcrime.securesms.database.MessageEditDatabase
 import org.thoughtcrime.securesms.api.snode.DeleteMessageApi
 import org.thoughtcrime.securesms.api.swarm.SwarmApiExecutor
 import org.thoughtcrime.securesms.api.swarm.SwarmApiRequest
@@ -66,6 +69,8 @@ import javax.inject.Singleton
 
 @Singleton
 class ReceivedMessageProcessor @Inject constructor(
+    private val messageEdits: MessageEditDatabase,
+    private val editLimits: Provider<ProStatusManager>,
     @param:ApplicationContext private val context: Context,
     private val recipientRepository: RecipientRepository,
     private val storage: Storage,
@@ -198,6 +203,11 @@ class ReceivedMessageProcessor @Inject constructor(
 
             is DataExtractionNotification -> handleDataExtractionNotification(message)
             is UnsendRequest -> handleUnsendRequest(message)
+            is MessageEdit -> if (threadId != null && MessageEditDatabase.supports(threadAddress) &&
+                message.body.codePointCount(0, message.body.length) <= editLimits.get().getIncomingMessageMaxLength(message)
+            ) {
+                messageEdits.apply(threadId, requireNotNull(message.sender), message.isSenderSelf, message)
+            }
             is MessageRequestResponse -> messageRequestResponseHandler.get()
                 .handleExplicitRequestResponseMessage(context, message, proto, pro)
 
@@ -220,6 +230,11 @@ class ReceivedMessageProcessor @Inject constructor(
                         runProfileUpdate = true,
                         pro = pro,
                     )
+                    if (MessageEditDatabase.supports(threadAddress)) {
+                        message.sentTimestamp?.let { timestamp ->
+                            messageEdits.applyPending(it, requireNotNull(message.sender), message.isSenderSelf, timestamp)
+                        }
+                    }
                 }
             }
 

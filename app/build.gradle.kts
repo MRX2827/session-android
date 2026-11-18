@@ -26,8 +26,9 @@ configurations.configureEach {
     exclude(module = "commons-logging")
 }
 
-val canonicalVersionCode = 456
-val canonicalVersionName = "1.33.8"
+val xsessionRelease = providers.gradleProperty("xsessionRelease").orNull == "true"
+val canonicalVersionCode = if (xsessionRelease) 457 else 456
+val canonicalVersionName = if (xsessionRelease) "1.33.8-x1" else "1.33.8"
 
 val postFixSize = 10
 val abiPostFix = mapOf(
@@ -159,6 +160,7 @@ android {
 
         // Safe default, so a build type that neither calls allowQaLaunchConfig() nor inherits it via
         // initWith() is off rather than missing the field. See allowQaLaunchConfig above.
+        buildConfigField("boolean", "XSESSION_OTA_ENABLED", "false")
         allowQaLaunchConfig(false)
 
         // NOTE: there is deliberately no PRO_BACKEND_DEV buildConfigField here. The Pro backend URL
@@ -185,9 +187,9 @@ android {
             )
             devNetDefaultOn(false)
             allowQaLaunchConfig(false)
-            enableClientVersionCheck(true)
+            enableClientVersionCheck(!xsessionRelease)
             enablePermissiveNetworkSecurityConfig(false)
-            setAlternativeAppName(null)
+            setAlternativeAppName(if (xsessionRelease) "Xsession" else null)
             setAuthorityPostfix("")
         }
 
@@ -241,6 +243,9 @@ android {
 
     sourceSets {
         val firebaseCommonDir = "src/firebaseCommon"
+        if (xsessionRelease) {
+            maybeCreate("playRelease").manifest.srcFile("src/xsessionRelease/AndroidManifest.xml")
+        }
         firebaseEnabledVariants.forEach { variant ->
             maybeCreate(variant).kotlin.directories += "$firebaseCommonDir/kotlin"
         }
@@ -300,6 +305,7 @@ android {
             buildConfigField("boolean", "PLAY_STORE_DISABLED", "false")
             buildConfigField("org.session.libsession.utilities.Device", "DEVICE", "org.session.libsession.utilities.Device.ANDROID")
             buildConfigField("String", "PUSH_KEY_SUFFIX", "\"\"")
+            buildConfigField("boolean", "XSESSION_OTA_ENABLED", xsessionRelease.toString())
             signingConfig = signingConfigs.getByName("play")
         }
 

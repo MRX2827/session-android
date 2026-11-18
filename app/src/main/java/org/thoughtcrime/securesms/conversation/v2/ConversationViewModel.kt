@@ -99,11 +99,10 @@ import org.thoughtcrime.securesms.database.AttachmentDatabase
 import org.thoughtcrime.securesms.database.BlindMappingRepository
 import org.thoughtcrime.securesms.database.GroupDatabase
 import org.thoughtcrime.securesms.database.LokiMessageDatabase
-import org.thoughtcrime.securesms.database.MmsDatabase
+import org.thoughtcrime.securesms.database.MmsSmsDatabase
 import org.thoughtcrime.securesms.database.ReactionDatabase
 import org.thoughtcrime.securesms.database.RecipientRepository
 import org.thoughtcrime.securesms.database.RecipientSettingsDatabase
-import org.thoughtcrime.securesms.database.SmsDatabase
 import org.thoughtcrime.securesms.database.ThreadDatabase
 import org.thoughtcrime.securesms.database.model.GroupThreadStatus
 import org.thoughtcrime.securesms.database.model.MessageId
@@ -155,8 +154,7 @@ class ConversationViewModel @AssistedInject constructor(
     private val configFactory: ConfigFactory,
     private val groupManagerV2: GroupManagerV2,
     private val callManager: CallManager,
-    private val mmsDatabase: MmsDatabase,
-    private val smsDatabase: SmsDatabase,
+    private val messageDatabase: MmsSmsDatabase,
     val legacyGroupDeprecationManager: LegacyGroupDeprecationManager,
     val dateUtils: DateUtils,
     expiredGroupManager: ExpiredGroupManager,
@@ -222,10 +220,7 @@ class ConversationViewModel @AssistedInject constructor(
             .filterNotNull()
             .flatMapLatest { threadId ->
                 merge(
-                    merge(
-                        mmsDatabase.changeNotification,
-                        smsDatabase.changeNotification
-                    ).filter { it.threadId == threadId },
+                    messageDatabase.messageChangesFlow.filter { it.threadId == threadId },
 
                     threadDb.changeNotification.filter { it.id == threadId }
                 )

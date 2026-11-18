@@ -91,6 +91,19 @@
             android:paddingHorizontal="@dimen/message_spacing"
             android:paddingBottom="8dp"/>
 
+        <TextView
+            android:id="@+id/messageEditedLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:includeFontPadding="false"
+            android:paddingHorizontal="@dimen/message_spacing"
+            android:paddingBottom="6dp"
+            android:text="@string/xsessionMessageEdited"
+            android:textSize="11sp"
+            android:visibility="gone"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/readMore" />
+
     </org.thoughtcrime.securesms.util.MessageBubbleView>
 
     <include layout="@layout/view_document"

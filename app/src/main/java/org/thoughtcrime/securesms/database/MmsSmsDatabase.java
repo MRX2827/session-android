@@ -76,6 +76,7 @@ public class MmsSmsDatabase extends Database {
   static final String PROJECTION_ALL = "*";
 
   private final LoginStateRepository loginStateRepository;
+  private final Provider<MessageEditDatabase> messageEdits;
   private final Lazy<@NonNull ThreadDatabase> threadDatabase;
   final Lazy<@NonNull MmsDatabase> mmsDatabase;
   final Lazy<@NonNull SmsDatabase> smsDatabase;
@@ -86,6 +87,7 @@ public class MmsSmsDatabase extends Database {
   public MmsSmsDatabase(@ApplicationContext Context context,
                         Provider<SQLCipherOpenHelper> databaseHelper,
                         LoginStateRepository loginStateRepository,
+                        Provider<MessageEditDatabase> messageEdits,
                         Lazy<@NonNull ThreadDatabase> threadDatabase, 
                         Lazy<@NonNull MmsDatabase> mmsDatabase, 
                         Lazy<@NonNull SmsDatabase> smsDatabase,
@@ -94,6 +96,7 @@ public class MmsSmsDatabase extends Database {
     super(context, databaseHelper);
 
     this.loginStateRepository = loginStateRepository;
+    this.messageEdits = messageEdits;
     this.threadDatabase = threadDatabase;
     this.mmsDatabase = mmsDatabase;
     this.smsDatabase = smsDatabase;
@@ -104,7 +107,8 @@ public class MmsSmsDatabase extends Database {
   public @NonNull Flow<MessageChanges> getMessageChangesFlow() {
     return FlowKt.merge(
             mmsDatabase.get().getChangeNotification(),
-            smsDatabase.get().getChangeNotification()
+            smsDatabase.get().getChangeNotification(),
+            messageEdits.get().getChanges()
     );
   }
 
@@ -594,9 +598,14 @@ public class MmsSmsDatabase extends Database {
     public MessageRecord getCurrent() {
       String type = cursor.getString(cursor.getColumnIndexOrThrow(TRANSPORT));
 
-      if      (MmsSmsDatabase.MMS_TRANSPORT.equals(type)) return getMmsReader().getCurrent();
-      else if (MmsSmsDatabase.SMS_TRANSPORT.equals(type)) return getSmsReader().getCurrent();
-      else                                                throw new AssertionError("Bad type: " + type);
+      final MessageRecord record;
+      if (MmsSmsDatabase.MMS_TRANSPORT.equals(type)) record = getMmsReader().getCurrent();
+      else if (MmsSmsDatabase.SMS_TRANSPORT.equals(type)) record = getSmsReader().getCurrent();
+      else throw new AssertionError("Bad type: " + type);
+
+      final int revisionColumn = cursor.getColumnIndex(MessageEditDatabase.EDITED_AT);
+      if (record != null && revisionColumn >= 0) record.setEditedAt(cursor.getLong(revisionColumn));
+      return record;
     }
 
     public void close() {

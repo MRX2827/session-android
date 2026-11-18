@@ -16,6 +16,7 @@ import org.session.libsession.messaging.messages.control.CallMessage
 import org.session.libsession.messaging.messages.control.DataExtractionNotification
 import org.session.libsession.messaging.messages.control.ExpirationTimerUpdate
 import org.session.libsession.messaging.messages.control.GroupUpdated
+import org.session.libsession.messaging.messages.control.MessageEdit
 import org.session.libsession.messaging.messages.control.MessageRequestResponse
 import org.session.libsession.messaging.messages.control.ReadReceipt
 import org.session.libsession.messaging.messages.control.TypingIndicator
@@ -85,7 +86,8 @@ class MessageParser @Inject constructor(
         MessageRequestResponse.fromProto(proto) ?:
         CallMessage.fromProto(proto) ?:
         GroupUpdated.fromProto(proto) ?:
-        VisibleMessage.fromProto(proto)
+        VisibleMessage.fromProto(proto) ?:
+        MessageEdit.fromProto(proto)
 
         if (message == null) {
             throw NonRetryableException("Unknown message type")
@@ -179,6 +181,10 @@ class MessageParser @Inject constructor(
             throw NonRetryableException("Ignoring self send message")
         }
 
+        if (message is MessageEdit && message.syncTarget != null && (!isSenderSelf || isForGroup)) {
+            throw NonRetryableException("Invalid edit sync target")
+        }
+
         // Fill in message fields
         message.sender = sender.hexString
         message.recipient = currentUserId.hexString
@@ -200,9 +206,11 @@ class MessageParser @Inject constructor(
             ?.let { proDatabase.isRevoked(it, snodeClock.currentTime()) } == true
 
         if (pro?.status == ProProof.STATUS_VALID && !proofRevoked) {
-            (message as? VisibleMessage)?.proFeatures = buildSet {
-                addAll(pro.proMessageFeatures.asSequence())
-                addAll(pro.proProfileFeatures.asSequence())
+            if (message is VisibleMessage || message is MessageEdit) {
+                message.proFeatures = buildSet {
+                    addAll(pro.proMessageFeatures.asSequence())
+                    addAll(pro.proProfileFeatures.asSequence())
+                }
             }
         }
 

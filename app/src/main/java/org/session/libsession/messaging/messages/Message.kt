@@ -7,6 +7,7 @@ import network.loki.messenger.libsession_util.util.ExpiryMode
 import org.session.libsession.database.MessageDataProvider
 import org.session.libsession.messaging.MessagingModuleConfiguration
 import org.session.libsession.messaging.messages.control.ExpirationTimerUpdate
+import org.session.libsession.messaging.messages.control.MessageEdit
 import org.session.libsession.messaging.messages.visible.VisibleMessage
 import org.session.libsession.snode.SnodeMessage
 import org.session.libsession.utilities.Address
@@ -58,6 +59,7 @@ abstract class Message {
         val Message.senderOrSync get() = when(this)  {
             is VisibleMessage -> syncTarget ?: sender!!
             is ExpirationTimerUpdate -> syncTarget ?: sender!!
+            is MessageEdit -> syncTarget ?: sender!!
             is UnsupportedMessage -> syncTarget ?: sender!!
             else -> sender!!
         }

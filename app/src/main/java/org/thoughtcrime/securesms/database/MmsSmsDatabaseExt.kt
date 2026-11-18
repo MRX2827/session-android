@@ -136,7 +136,8 @@ object MmsSmsDatabaseExt {
             ($SMS_HASH_QUERY) AS ${MmsSmsColumns.SERVER_HASH},
             ${MmsSmsColumns.PRO_MESSAGE_FEATURES},
             ${MmsSmsColumns.PRO_PROFILE_FEATURES},
-            ${MmsSmsColumns.IS_OUTGOING}
+            ${MmsSmsColumns.IS_OUTGOING},
+            ${MessageEditDatabase.EDITED_AT}
         FROM ${SmsDatabase.TABLE_NAME}
         $whereStatement
     """ else null
@@ -221,7 +222,8 @@ object MmsSmsDatabaseExt {
             ($MMS_HASH_QUERY) AS ${MmsSmsColumns.SERVER_HASH},
             ${MmsSmsColumns.PRO_MESSAGE_FEATURES},
             ${MmsSmsColumns.PRO_PROFILE_FEATURES},
-            ${MmsSmsColumns.IS_OUTGOING}
+            ${MmsSmsColumns.IS_OUTGOING},
+            ${MessageEditDatabase.EDITED_AT}
         FROM ${MmsDatabase.TABLE_NAME}
         $whereStatement
     """ else null

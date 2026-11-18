@@ -31,6 +31,7 @@
        <item name="menu_ban_icon">@drawable/ic_user_round_x</item>
        <item name="menu_unban_icon">@drawable/ic_user_round_tick</item>
        <item name="menu_save_icon">@drawable/ic_arrow_down_to_line</item>=
+       <item name="menu_edit_icon">@drawable/ic_pencil</item>
        <item name="menu_copy_icon">@drawable/ic_copy</item>
        <item name="menu_reply_icon">@drawable/ic_reply</item>
        <item name="menu_select_icon">@drawable/ic_circle_check</item>

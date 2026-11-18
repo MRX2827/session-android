@@ -43,6 +43,7 @@ import org.thoughtcrime.securesms.database.SmsDatabase;
 import org.thoughtcrime.securesms.database.SnodeDatabase;
 import org.thoughtcrime.securesms.database.ThreadDatabase;
 import org.thoughtcrime.securesms.database.UnsupportedMessageDatabase;
+import org.thoughtcrime.securesms.database.MessageEditDatabase;
 import org.thoughtcrime.securesms.pro.db.ProDatabase;
 import org.thoughtcrime.securesms.util.ConfigurationMessageUtilities;
 
@@ -116,8 +117,10 @@ public class SQLCipherOpenHelper extends SQLiteOpenHelper {
   private static final int lokiV61                          = 82;
   private static final int lokiV62                          = 83;
 
+  private static final int xsessionV1 = 84;
+
   // Loki - onUpgrade(...) must be updated to use Loki version numbers if Signal makes any database changes
-  private static final int    DATABASE_VERSION         = lokiV62;
+  private static final int    DATABASE_VERSION         = xsessionV1;
   private static final int    MIN_DATABASE_VERSION     = lokiV7;
   public static final String  DATABASE_NAME            = "session.db";
 
@@ -316,6 +319,7 @@ public class SQLCipherOpenHelper extends SQLiteOpenHelper {
     ProDatabase.Companion.reshapeRevocationsForSeconds(db);
 
     UnsupportedMessageDatabase.createTable(db);
+    MessageEditDatabase.createSchema(db);
   }
 
   @Override
@@ -685,6 +689,10 @@ public class SQLCipherOpenHelper extends SQLiteOpenHelper {
 
       if (oldVersion < lokiV62) {
         UnsupportedMessageDatabase.createTable(db);
+      }
+
+      if (oldVersion < xsessionV1) {
+        MessageEditDatabase.createSchema(db);
       }
 
       db.setTransactionSuccessful();

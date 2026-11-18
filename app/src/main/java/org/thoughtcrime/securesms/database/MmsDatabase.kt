@@ -967,6 +967,10 @@ class MmsDatabase @Inject constructor(
                 attachments
                     .filterNot { o: DatabaseAttachment? -> o in previewAttachments }
             )
+            val revisionColumn = cursor.getColumnIndex(MessageEditDatabase.EDITED_AT)
+            val visiblePreviews = if (revisionColumn >= 0 && cursor.getLong(revisionColumn) > 0L) {
+                previews.filter { preview -> preview != null && body?.contains(preview.url) == true }
+            } else previews
             val quote = if (getQuote) getQuote(cursor) else null
             val reactions = reactionDatabase.getReactions(cursor)
             val messageContent = runCatching {
@@ -993,7 +997,7 @@ class MmsDatabase @Inject constructor(
                 /* expireStarted = */ expireStarted,
                 /* readReceiptCount = */ readReceiptCount,
                 /* quote = */ quote,
-                /* linkPreviews = */ previews,
+                /* linkPreviews = */ visiblePreviews,
                 /* reactions = */ reactions,
                 /* hasMention = */ hasMention,
                 /* messageContent = */ messageContent,

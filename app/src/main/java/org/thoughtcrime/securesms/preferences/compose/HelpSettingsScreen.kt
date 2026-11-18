@@ -36,7 +36,8 @@ private const val SUPPORT_URL = "https://sessionapp.zendesk.com/hc/en-us"
 @Composable
 fun HelpSettingsScreen(
     viewModel: HelpSettingsViewModel,
-    onBackPressed: () -> Unit
+    onBackPressed: () -> Unit,
+    onCheckUpdates: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
 
@@ -75,7 +76,8 @@ fun HelpSettingsScreen(
         uiState = uiState,
         sendCommand = viewModel::onCommand,
         exporter = viewModel.exporter,
-        onBackPressed = onBackPressed
+        onBackPressed = onBackPressed,
+        onCheckUpdates = onCheckUpdates
     )
 }
 
@@ -84,7 +86,8 @@ fun HelpSettings(
     uiState: HelpSettingsViewModel.UIState,
     sendCommand: (HelpSettingsViewModel.Commands) -> Unit,
     exporter: LogExporter,
-    onBackPressed: () -> Unit
+    onBackPressed: () -> Unit,
+    onCheckUpdates: (() -> Unit)? = null,
 ) {
 
     val context = LocalContext.current
@@ -93,6 +96,20 @@ fun HelpSettings(
         onBack = onBackPressed,
         title = GetString(R.string.sessionHelp).string()
     ) {
+        if (onCheckUpdates != null) {
+            item {
+                CategoryCell {
+                    ActionRowItem(
+                        modifier = Modifier.fillMaxWidth(),
+                        title = annotatedStringResource(R.string.xsessionCheckUpdates),
+                        qaTag = R.string.qa_xsession_check_updates,
+                        onClick = onCheckUpdates,
+                    )
+                }
+                Spacer(modifier = Modifier.height(LocalDimensions.current.smallSpacing))
+            }
+        }
+
         item {
             CategoryCell(
                 modifier = Modifier,

@@ -1,0 +1,20 @@
+<resources>
+    <string name="xsessionEditMessage">Edit message</string>
+    <string name="xsessionMessageText">Message text</string>
+    <string name="xsessionMessageEdited">Edited</string>
+    <string name="xsessionSavingEdit">Saving…</string>
+    <string name="xsessionEditUnavailable">This message can no longer be edited. Reopen the editor to see the current version.</string>
+    <string name="xsessionEditTooLong">The edited message is too long.</string>
+    <string name="xsessionEditRecoveryPhrase">Remove your recovery password before saving this message.</string>
+    <string name="xsessionEditFailed">Couldn’t save the edit. Try again.</string>
+    <string name="xsessionCheckUpdates">Check for Xsession updates</string>
+    <string name="xsessionCheckingUpdates">Checking GitHub…</string>
+    <string name="xsessionDownloadingUpdate">Downloading update…</string>
+    <string name="xsessionUpdateCurrent">You have the latest Xsession build.</string>
+    <string name="xsessionUpdateAvailable">Xsession update available</string>
+    <string name="xsessionUpdateDescription">Build %1$d · %2$d MB. Android will ask you to confirm installation.</string>
+    <string name="xsessionUpdateError">Couldn’t fetch or verify the update. Try again.</string>
+    <string name="xsessionUpdatePermission">Allow Xsession to install apps in Android settings. The installer will open when you return.</string>
+    <string name="xsessionUpdateOpenSettings">Open Android settings</string>
+    <string name="qa_xsession_check_updates" translatable="false">xsession_check_updates</string>
+</resources>

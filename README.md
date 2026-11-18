@@ -1,3 +1,17 @@
+# Xsession
+
+Xsession is an independent Android fork of Session with video circles, message editing, and updates from GitHub Releases.
+
+[X.cssn website](https://mrx2827.github.io/x-cssn/) · [Xsession releases](https://github.com/MRX2827/session-android/releases)
+
+Hold a sent message and choose **Edit** in a direct chat, closed group, or Note to Self. Edits are delivered to recent Xsession clients. Public communities and disappearing messages use their existing controls.
+
+To build a signed update, use the same release signing key as the installed Xsession and run
+`./gradlew :app:assemblePlayRelease -PxsessionRelease=true -PsplitApks=true`.
+The signing properties are described in [RELEASE.md](RELEASE.md). Increase the fork version code and name in `app/build.gradle.kts`, then check the actual version code of the universal APK. Tag the GitHub release `xsession-build-<APK versionCode>` and attach the signed universal APK as `Xsession.apk`. The in-app updater uses GitHub's SHA-256 digest and checks the package name, version code, and signing certificate before opening the Android installer.
+
+---
+
 # Session Android 
 
 [Download on the Google Play Store](https://getsession.org/android)

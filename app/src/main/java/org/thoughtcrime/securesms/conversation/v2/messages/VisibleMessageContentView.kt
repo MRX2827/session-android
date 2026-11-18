@@ -68,6 +68,9 @@ class VisibleMessageContentView : ConstraintLayout {
     var onContentDoubleTap: (() -> Unit)? = null
     var delegate: VisibleMessageViewDelegate? = null
 
+    private var lastBoundMessageId: MessageId? = null
+    private var lastBoundEditRevision = 0L
+
     private val MAX_COLLAPSED_LINE_COUNT = 25
 
     @Inject
@@ -95,6 +98,14 @@ class VisibleMessageContentView : ConstraintLayout {
         isTextExpanded: Boolean = false,
         onTextExpanded: ((MessageId) -> Unit)? = null
     ) {
+        val animateEdit = lastBoundMessageId == message.messageId && message.editedAt > lastBoundEditRevision
+        lastBoundMessageId = message.messageId
+        lastBoundEditRevision = message.editedAt
+        binding.messageEditedLabel.isVisible = false
+        binding.bodyTextView.animate().cancel()
+        binding.bodyTextView.alpha = 1f
+        binding.bodyTextView.translationY = 0f
+
         // Background
         val color = if (message.isOutgoing) context.getAccentColor()
         else context.getColorFromAttr(R.attr.message_received_background_color)
@@ -412,6 +423,17 @@ class VisibleMessageContentView : ConstraintLayout {
             binding.bodyTextView.setLinkTextColor(color)
             val body = getBodySpans(context, message, searchQuery)
             binding.bodyTextView.text = body
+            binding.messageEditedLabel.isVisible = message.editedAt > 0L
+            binding.messageEditedLabel.setTextColor(color)
+            binding.messageEditedLabel.alpha = 0.8f
+            if (animateEdit && isAttachedToWindow) {
+                binding.bodyTextView.alpha = 0.35f
+                binding.bodyTextView.translationY = 4f * resources.displayMetrics.density
+                binding.bodyTextView.animate()
+                    .alpha(1f).translationY(0f).setDuration(260)
+                    .setInterpolator(androidx.interpolator.view.animation.FastOutSlowInInterpolator())
+                    .start()
+            }
             onContentClick.add { e: MotionEvent ->
                 binding.bodyTextView.getIntersectedModalSpans(e).iterator().forEach { span ->
                     span.onClick(binding.bodyTextView)

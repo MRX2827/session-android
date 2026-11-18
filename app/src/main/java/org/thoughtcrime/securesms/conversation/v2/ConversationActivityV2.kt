@@ -3378,6 +3378,14 @@ class ConversationActivityV2 : ScreenLockActionBarActivity(), InputBarDelegate,
             val selectedItems = setOf(message)
             when (action) {
                 ConversationReactionOverlay.Action.REPLY -> reply(selectedItems)
+                ConversationReactionOverlay.Action.EDIT -> {
+                    if (!supportFragmentManager.isStateSaved &&
+                        supportFragmentManager.findFragmentByTag(EditMessageSheet.TAG) == null
+                    ) {
+                        EditMessageSheet.create(message, viewModel.address)
+                            .show(supportFragmentManager, EditMessageSheet.TAG)
+                    }
+                }
                 ConversationReactionOverlay.Action.RESYNC -> resyncMessage(selectedItems)
                 ConversationReactionOverlay.Action.RESEND -> resendMessage(selectedItems)
                 ConversationReactionOverlay.Action.DOWNLOAD -> saveAttachmentsIfPossible(selectedItems)

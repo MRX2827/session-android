@@ -38,6 +38,11 @@ import network.loki.messenger.libsession_util.protocol.ProFeature;
  *
  */
 public abstract class MessageRecord extends DisplayRecord {
+  private long editedAt;
+
+  public long getEditedAt() { return editedAt; }
+
+  public void setEditedAt(long editedAt) { this.editedAt = editedAt; }
   private final Recipient individualRecipient;
   private final long                      expiresIn;
   private final long                      expireStarted;
